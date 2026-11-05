@@ -1,0 +1,105 @@
+/// One row per semantic model QueryEnd from workspace monitoring. IsAI is true when any query source starts with fabricaihub_mcp_server. CPU milliseconds are not billed CU.
+table Statements
+
+	column 'Statement ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: StatementKey
+
+	column 'Request Key'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: RequestKey
+
+	column 'Time UTC'
+		dataType: dateTime
+		formatString: dd MMM HH:mm:ss
+		summarizeBy: none
+		sourceColumn: Timestamp
+
+	column 'Source operation'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: SourceOperation
+
+	column Status
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Status
+
+	column 'CPU ms'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: CpuTimeMs
+
+	column 'Duration ms'
+		dataType: int64
+		summarizeBy: none
+		sourceColumn: DurationMs
+
+	column DAX
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Dax
+
+	column 'Report IDs'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ReportIds
+
+	column 'Visual IDs'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: VisualIds
+
+	column Client
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Client
+
+	column Identity
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ExecutingUser
+
+	column 'Operation ID'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: OperationId
+
+	column 'Correlation ID'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: CorrelationId
+
+	column 'Source details'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: SourceDetails
+
+	column 'Is AI'
+		dataType: boolean
+		isHidden
+		summarizeBy: none
+		sourceColumn: IsAI
+
+	column Item
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ItemName
+
+	column Workspace
+		dataType: string
+		summarizeBy: none
+		sourceColumn: WorkspaceName
+
+	partition Statements = m
+		mode: import
+		source =
+				let
+					Source = AzureDataExplorer.Contents(ObservabilityEndpoint, ObservabilityDatabase, "ObservabilityStatements()", [MaxRows=null, MaxSize=null, NoTruncate=true, AdditionalSetStatements=null])
+				in
+					Source

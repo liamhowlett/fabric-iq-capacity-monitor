@@ -1,0 +1,19 @@
+/// The three reporting windows on the first page. Disconnected on purpose: a visual filtered to one row makes the Window measures use that many hours, counted back from the latest hour with data.
+table Window
+	isHidden
+
+	column Label
+		isNameInferred
+		sourceColumn: [Label]
+
+	column Hours
+		isNameInferred
+		sourceColumn: [Hours]
+
+	column Order
+		isNameInferred
+		sourceColumn: [Order]
+
+	partition Window = calculated
+		mode: import
+		source = DATATABLE("Label", STRING, "Hours", INTEGER, "Order", INTEGER, {{"Last 24 hours", 24, 1}, {"Last 7 days", 168, 2}, {"Last 28 days", 672, 3}})

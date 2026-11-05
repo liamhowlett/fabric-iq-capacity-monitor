@@ -1,0 +1,172 @@
+.create-or-alter function with (folder="Observability", docstring="Deployment scope. Add monitoring databases to the source list when extending this instance.", skipvalidation="true") ObservabilitySettings() {
+print CapacityId=__CAPACITY_ID__, LookbackDays=long(__LOOKBACK_DAYS__), MonitoringSourceCount=long(__SOURCE_COUNT__)
+}
+
+.create-or-alter function with (folder="Observability", docstring="Optional tenant-local identity labels. No directory permissions are required when this map is empty.", skipvalidation="true") ObservabilityIdentityMap() {
+datatable(IdentityKey:string, MappedIdentity:string) [
+    __IDENTITY_MAPPINGS__
+]
+}
+
+.create-or-alter function with (folder="Observability", docstring="Deduplicated capacity-operation accounting events in the configured capacity and event-time horizon. Preserve identity type and billing status.", skipvalidation="true") ObservabilityCharges() {
+let settings=ObservabilitySettings();
+let capacity=toscalar(settings | project CapacityId);
+let horizon=toscalar(settings | project LookbackDays)*1d;
+CapacityOperationEventsRaw
+| extend ObservedAt=ingestion_time(), EventSource=tostring(Event.source), EventId=tostring(Event.id), D=Event.data, EventTime=todatetime(Event["time"])
+| where EventTime between (ago(horizon)..now()) and isnotempty(EventId)
+| where tolower(tostring(D.capacityId))==capacity
+| summarize arg_max(ObservedAt,*) by EventSource,EventId
+| extend CapacityId=tolower(tostring(D.capacityId)),WorkspaceId=tolower(tostring(D.workspaceId)),ItemId=tolower(tostring(D.itemId)),OperationId=tolower(tostring(D.operationId))
+| extend OperationStart=coalesce(todatetime(D.operationStartTime),todatetime(D.consumptionStartTime),EventTime),
+    TimeBasis=iff(isnotempty(tostring(D.operationStartTime)),'Operation start','Consumption start'),
+    IdentityType=tostring(D.identityType),IdentityValue=tostring(D.identityValue)
+| extend IdentityKey=strcat(tolower(IdentityType),'|',tolower(IdentityValue))
+| join kind=leftouter ObservabilityIdentityMap() on IdentityKey
+| extend IdentityDisplay=case(isnotempty(MappedIdentity),MappedIdentity,
+    isempty(IdentityValue),'Not reported',
+    IdentityType=='ObjectId',strcat('Unresolved identity (',IdentityValue,')'),
+    IdentityValue)
+| project ChargeId=strcat('live:',EventSource,':',EventId),
+    RequestKey=iff(isnotempty(OperationId),strcat(CapacityId,'|',WorkspaceId,'|',ItemId,'|',OperationId),strcat('unmatched-charge:',EventSource,':',EventId)),
+    CapacityId,CapacityName=tostring(D.capacityFriendlyName),CapacitySku=tostring(D.capacitySku),
+    WorkspaceId,WorkspaceName=tostring(D.workspaceName),ItemId,ItemName=tostring(D.itemName),ItemKind=tostring(D.itemKind),
+    OperationId,OperationName=tostring(D.operationName),UtilizationType=tostring(D.utilizationType),
+    IdentityType,IdentityValue,IdentityDisplay,OperationStart,OperationEnd=OperationStart+tolong(D.durationMs)*1ms,
+    CUSeconds=todouble(D.capacityUnitMs)/1000.0,
+    BillingType=case(tostring(D.releaseType)=='Public','Billable',tostring(D.releaseType)=='Preview','Non-billable','Unknown'),
+    Status=tostring(D.status),ObservedAt,EventTime,TimeBasis,
+    CostValid=isnotnull(todouble(D.capacityUnitMs)) and todouble(D.capacityUnitMs)>=0
+}
+
+.create-or-alter function with (folder="Observability", docstring="QueryEnd logs from every configured monitoring source, restricted to the selected capacity. Only the stable fabricaihub_mcp_server prefix identifies AI.", skipvalidation="true") ObservabilityStatements() {
+let settings=ObservabilitySettings();
+let capacity=toscalar(settings | project CapacityId);
+let horizon=toscalar(settings | project LookbackDays)*1d;
+let AiSourcePrefix='fabricaihub_mcp_server';
+let feedStart=toscalar(ObservabilityCharges() | summarize min(EventTime));
+__LOG_SOURCES__
+| where Timestamp between (ago(horizon)..now()) and (isnull(feedStart) or Timestamp>=feedStart) and OperationName=='QueryEnd'
+| where tolower(CapacityId)==capacity
+| extend ExecutingUser=coalesce(column_ifexists('ExecutingUser',''),tostring(column_ifexists('Identity',dynamic({})).effectiveClaims.upn),column_ifexists('User',''))
+| project Timestamp,ItemId,ItemName,WorkspaceId,WorkspaceName,CapacityId,OperationId,CorrelationId,
+    ApplicationName=column_ifexists('ApplicationName',''),ApplicationContext=column_ifexists('ApplicationContext',dynamic({})),ExecutingUser,
+    DurationMs=column_ifexists('DurationMs',long(null)),CpuTimeMs=column_ifexists('CpuTimeMs',long(null)),
+    Status=column_ifexists('Status',''),EventText=column_ifexists('EventText',''),ReplicaId=column_ifexists('ReplicaId','')
+| extend ItemId=tolower(ItemId),WorkspaceId=tolower(WorkspaceId),CapacityId=tolower(CapacityId),OperationId=tolower(OperationId)
+| extend RequestKey=strcat(CapacityId,'|',WorkspaceId,'|',ItemId,'|',OperationId)
+| extend StatementKey=hash_sha256(strcat(RequestKey,'|',CorrelationId,'|',Timestamp,'|',ReplicaId))
+| summarize take_any(*) by StatementKey
+| extend Sources=iff(coalesce(array_length(ApplicationContext.Sources),0)>0,ApplicationContext.Sources,dynamic([{}]))
+| mv-apply S=Sources on (
+    summarize SourceOps=make_set_if(tostring(S.Operation),isnotempty(tostring(S.Operation))),
+        AiHits=countif(tostring(S.Operation) startswith AiSourcePrefix),
+        Reports=make_set_if(tostring(S.ReportId),isnotempty(tostring(S.ReportId))),
+        Visuals=make_set_if(tostring(S.VisualId),isnotempty(tostring(S.VisualId))),
+        Clients=make_set_if(tostring(S.HostProperties.ConsumptionMethod),isnotempty(tostring(S.HostProperties.ConsumptionMethod)))
+)
+| extend SourceOperation=strcat_array(SourceOps,'; '),ReportIds=strcat_array(Reports,'; '),
+    VisualIds=strcat_array(Visuals,'; '),Client=strcat_array(Clients,'; '),IsAI=AiHits>0
+| project StatementKey,RequestKey,Timestamp,ItemId,ItemName,WorkspaceId,WorkspaceName,CapacityId,OperationId,CorrelationId,
+    ApplicationName,SourceOperation,ReportIds,VisualIds,Client,ExecutingUser,DurationMs,CpuTimeMs,Status,IsAI,
+    Dax=EventText,SourceDetails=tostring(ApplicationContext)
+}
+
+.create-or-alter function with (folder="Observability", docstring="Observed capacity hours, not authoritative uptime. Empty, suspended or missed hours are not assumed to have zero consumption.", skipvalidation="true") ObservabilityCapacity() {
+let skuCU=(s:string){case(s startswith 'FT',64.0,s startswith 'F',todouble(substring(s,1)),s=='P1',64.0,s=='P2',128.0,s=='P3',256.0,s=='P4',512.0,s=='P5',1024.0,real(null))};
+ObservabilityCharges()
+| extend RowCU=skuCU(CapacitySku)
+| summarize Sku=take_anyif(CapacitySku,isnotempty(CapacitySku)),Capacity=take_anyif(CapacityName,isnotempty(CapacityName)),CapacityCU=max(RowCU) by CapacityId,Hour=bin(EventTime,1h)
+| extend BudgetCUs=CapacityCU*3600.0,Date=startofday(Hour),CapacityHourKey=strcat(CapacityId,'|',format_datetime(Hour,'yyyyMMddHH'))
+| project CapacityHourKey,Hour,Date,CapacityId,Capacity,Sku,CapacityCU,BudgetCUs
+}
+
+.create-or-alter function with (folder="Observability", docstring="One row per capacity operation or log-only query operation. Aggregate consumption and statements separately before joining, so multiple statements cannot multiply CU.", skipvalidation="true") ObservabilityRequests() {
+let costs=ObservabilityCharges()
+    | summarize MeasuredCU=sumif(CUSeconds,CostValid and BillingType=='Billable'),
+        NonbillableCU=sumif(CUSeconds,CostValid and BillingType=='Non-billable'),
+        ChargeRows=count(),ValidCharges=countif(CostValid),InvalidCharges=countif(not(CostValid)),
+        CostStart=min(OperationStart),CostEnd=max(OperationEnd),CostObservedAt=min(ObservedAt),
+        TimeBasisSet=make_set(TimeBasis),IdentitySet=make_set(IdentityValue),IdentityLabels=make_set(IdentityDisplay),IdentityTypes=make_set(IdentityType),
+        CostItem=take_any(ItemName),CostWorkspace=take_any(WorkspaceName),
+        CostItemId=take_any(ItemId),CostWorkspaceId=take_any(WorkspaceId),CostCapacityId=take_any(CapacityId),
+        CostOperationId=take_any(OperationId),CostItemKind=take_any(ItemKind),CostOperation=take_any(OperationName),
+        CostUtilization=take_any(UtilizationType),CostEventTime=min(EventTime)
+        by CostKey=RequestKey;
+let logs=ObservabilityStatements()
+    | summarize StatementCount=count(),FailedCount=countif(Status=='Failed'),CpuMs=sum(CpuTimeMs),
+        QueryStart=min(Timestamp),QueryEnd=max(Timestamp),AiCount=countif(IsAI),
+        LogIdentities=make_set_if(ExecutingUser,isnotempty(ExecutingUser)),
+        UserIdentities=make_set_if(ExecutingUser,ExecutingUser contains '@'),
+        LogItem=take_any(ItemName),LogItemId=take_any(ItemId),LogWorkspace=take_any(WorkspaceName),
+        LogWorkspaceId=take_any(WorkspaceId),LogCapacityId=take_any(CapacityId),LogOperationId=take_any(OperationId)
+        by LogKey=RequestKey;
+costs
+| join kind=fullouter logs on $left.CostKey==$right.LogKey
+| extend HasCost=isnotempty(CostKey),HasLogs=isnotempty(LogKey)
+| extend RequestKey=coalesce(CostKey,LogKey),ItemId=coalesce(CostItemId,LogItemId),
+    WorkspaceId=coalesce(CostWorkspaceId,LogWorkspaceId),CapacityId=coalesce(CostCapacityId,LogCapacityId),
+    OperationId=coalesce(CostOperationId,LogOperationId),Item=coalesce(CostItem,LogItem,'Unidentified item'),
+    Workspace=coalesce(CostWorkspace,LogWorkspace,'Unidentified workspace'),
+    StartTime=coalesce(CostStart,QueryStart,CostObservedAt)
+| extend ItemKind=coalesce(CostItemKind,iff(HasLogs,'Dataset','')),Operation=coalesce(CostOperation,iff(HasLogs,'Query','')),
+    Utilization=coalesce(CostUtilization,iff(HasLogs,'Interactive',''))
+| extend IsAI=coalesce(AiCount,0)>0,IsSemanticQuery=(ItemKind=='Dataset' and Operation=='Query')
+| extend Workload=case(
+    IsAI,'AI queries (Fabric IQ)',
+    IsSemanticQuery,'Other semantic model queries',
+    Operation has 'Copilot','Copilot in Fabric',
+    ItemKind=='Dataset','Semantic model (other operations)',
+    ItemKind in ('KustoEventHouse','KustoDatabase'),'Eventhouse and KQL',
+    ItemKind=='EventStream','Eventstream',
+    ItemKind=='OperationalAgents','Operations agents',
+    ItemKind in ('Warehouse','SqlAnalyticsEndpoint'),'Warehouse and SQL endpoint',
+    ItemKind=='SQLDbNative','SQL database',
+    ItemKind=='Lakehouse','Lakehouse',
+    ItemKind=='Activator','Activator',
+    ItemKind=='Report','Report exports and other',
+    ItemKind startswith 'FabricEvents','Fabric events',
+    isempty(ItemKind),'Unclassified',
+    ItemKind)
+| extend UsageType=iff(IsAI,'AI queries','Other workloads')
+| extend MatchStatus=case(not(IsSemanticQuery),'Not applicable',
+    HasCost and HasLogs,'Matched',
+    HasCost and StartTime>ago(15m),'Pending logs',
+    HasCost,'No query log',
+    QueryEnd>ago(15m),'Pending consumption','Logs only')
+| extend TimeBasis=case(isnotnull(CostStart),iff(set_has_element(TimeBasisSet,'Operation start'),'Operation start','Consumption start'),isnotnull(QueryStart),'Query end','Ingestion time')
+| extend ExecutionSet=case(array_length(UserIdentities)>0,UserIdentities,array_length(IdentityLabels)>0,IdentityLabels,LogIdentities),
+    IdentityEvidence=iff(array_length(UserIdentities)>0,'Query execution principal','Capacity event or reported service principal')
+| extend IdentityDisplay=case(array_length(ExecutionSet)==1,tostring(ExecutionSet[0]),array_length(ExecutionSet)>1,'Multiple execution identities','Not reported'),
+    ExecutionIdentities=strcat_array(array_sort_asc(ExecutionSet),'; ')
+| extend BillableCU=iff(HasCost and ValidCharges>0,MeasuredCU,real(null)),
+    Date=startofday(coalesce(CostEventTime,QueryEnd,CostObservedAt)),
+    Request=strcat(Item,' | ',iff(isnotempty(OperationId),substring(OperationId,0,8),strcat('unmatched-',substring(hash_sha256(RequestKey),0,8)))),
+    Hour=bin(coalesce(CostEventTime,QueryEnd,CostObservedAt),1h),
+    CapacityHourKey=strcat(CapacityId,'|',format_datetime(bin(coalesce(CostEventTime,QueryEnd,CostObservedAt),1h),'yyyyMMddHH'))
+| project RequestKey,Request,OperationId,ItemId,Item,ItemKind,Operation,Utilization,Workload,UsageType,IsAI,IsSemanticQuery,
+    WorkspaceId,Workspace,CapacityId,CapacityHourKey,MatchStatus,StartTime,TimeBasis,Date,Hour,BillableCU,NonbillableCU,
+    ChargeRows=coalesce(ChargeRows,0),InvalidCharges=coalesce(InvalidCharges,0),StatementCount=coalesce(StatementCount,0),
+    FailedCount=coalesce(FailedCount,0),CpuMs=coalesce(CpuMs,0),HasCost,HasLogs,Identities=strcat_array(IdentitySet,'; '),
+    IdentityDisplay,ExecutionIdentities,IdentityEvidence,IdentityTypes=strcat_array(IdentityTypes,'; ')
+}
+
+.create-or-alter function with (folder="Observability", docstring="Snapshot timestamps, deployment scope and methodology. Ingestion recency is not represented as a live connection or proof of capacity uptime.", skipvalidation="true") ObservabilityHealth() {
+union
+    (print ['Check']='Data as of UTC',Value=format_datetime(now(),'yyyy-MM-dd HH:mm'),SortOrder=long(0)),
+    (ObservabilityCharges() | summarize LatestEvent=max(EventTime)
+        | project ['Check']='Capacity feed',Value=case(isnull(LatestEvent),'No capacity events observed at snapshot',
+            LatestEvent<ago(15m),'Latest event was more than 15 minutes old at snapshot',
+            'Latest event was recent at snapshot'),SortOrder=long(1)),
+    (ObservabilityCharges() | summarize LatestEvent=max(EventTime) | project ['Check']='Last capacity event UTC',Value=iff(isnull(LatestEvent),'Not yet observed',format_datetime(LatestEvent,'yyyy-MM-dd HH:mm:ss')),SortOrder=long(2)),
+    (ObservabilityCharges() | summarize LatestIngest=max(ObservedAt) | project ['Check']='Last event ingestion UTC',Value=iff(isnull(LatestIngest),'Not yet observed',format_datetime(LatestIngest,'yyyy-MM-dd HH:mm:ss')),SortOrder=long(3)),
+    (ObservabilityStatements() | summarize LatestQuery=max(Timestamp) | project ['Check']='Last semantic query UTC',Value=iff(isnull(LatestQuery),'Not yet observed',format_datetime(LatestQuery,'yyyy-MM-dd HH:mm:ss')),SortOrder=long(4)),
+    (ObservabilitySettings() | project ['Check']='Monitoring sources configured',Value=tostring(MonitoringSourceCount),SortOrder=long(5)),
+    (ObservabilityCapacity() | summarize Name=take_any(Capacity),Sku=take_any(Sku) | project ['Check']='Capacity scope',Value=iff(isempty(Name),'No capacity events observed',strcat(Name,' (',Sku,')')),SortOrder=long(6)),
+    (print ['Check']='AI definition',Value='Semantic query source starts with fabricaihub_mcp_server. All callers are combined.',SortOrder=long(7)),
+    (print ['Check']='AI scope',Value='AI can be identified only where query logs are observed. Workspace coverage counts data, not monitoring configuration.',SortOrder=long(8)),
+    (print ['Check']='Cost grain',Value='Recorded billable CU-seconds per operation. Multiple query statements do not multiply consumption.',SortOrder=long(9)),
+    (print ['Check']='Capacity budget',Value='Capacity CU x 3600 seconds per hour with feed events. Missing, idle and suspended hours cannot be distinguished. Approximate, not smoothed utilisation.',SortOrder=long(10)),
+    (print ['Check']='Other billing',Value='M365, Cowork, Copilot credits and Databricks charges are not included.',SortOrder=long(11)),
+    (print ['Check']='Identity attribution',Value='Execution principal, not necessarily the person who asked. Multiple principals are kept as one operation, without duplicating CU.',SortOrder=long(12))
+}

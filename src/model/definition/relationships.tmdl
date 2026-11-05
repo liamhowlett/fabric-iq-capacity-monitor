@@ -1,0 +1,15 @@
+relationship 'Charges to Request'
+	fromColumn: Charges.'Request Key'
+	toColumn: Requests.'Request Key'
+
+relationship 'Statements to Request'
+	fromColumn: Statements.'Request Key'
+	toColumn: Requests.'Request Key'
+
+relationship 'Requests to Date'
+	fromColumn: Requests.Date
+	toColumn: Dates.Date
+
+relationship 'Capacity to Date'
+	fromColumn: Capacity.Date
+	toColumn: Dates.Date

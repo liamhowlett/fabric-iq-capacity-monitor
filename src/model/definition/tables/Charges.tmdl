@@ -1,0 +1,85 @@
+/// Distinct measured capacity accounting rows from the live capacity feed. User and service records are retained separately.
+table Charges
+
+	column 'Charge ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: ChargeId
+
+	column 'Request Key'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: RequestKey
+
+	column Identity
+		dataType: string
+		summarizeBy: none
+		sourceColumn: IdentityValue
+
+	column Operation
+		dataType: string
+		summarizeBy: none
+		sourceColumn: OperationName
+
+	column Billing
+		dataType: string
+		summarizeBy: none
+		sourceColumn: BillingType
+
+	column Status
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Status
+
+	column 'CU seconds'
+		dataType: double
+		formatString: #,##0.000
+		summarizeBy: none
+		sourceColumn: CUSeconds
+
+	column 'Start UTC'
+		dataType: dateTime
+		formatString: dd MMM HH:mm:ss
+		summarizeBy: none
+		sourceColumn: OperationStart
+
+	column 'End UTC'
+		dataType: dateTime
+		formatString: dd MMM HH:mm:ss
+		summarizeBy: none
+		sourceColumn: OperationEnd
+
+	column 'Operation ID'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: OperationId
+
+	column Item
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ItemName
+
+	column 'Item kind'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ItemKind
+
+	column Utilization
+		dataType: string
+		summarizeBy: none
+		sourceColumn: UtilizationType
+
+	column Workspace
+		dataType: string
+		summarizeBy: none
+		sourceColumn: WorkspaceName
+
+	partition Charges = m
+		mode: import
+		source =
+				let
+					Source = AzureDataExplorer.Contents(ObservabilityEndpoint, ObservabilityDatabase, "ObservabilityCharges()", [MaxRows=null, MaxSize=null, NoTruncate=true, AdditionalSetStatements=null])
+				in
+					Source

@@ -1,0 +1,58 @@
+/// Capacity size and CU budget per hour, from the live capacity feed. An hour counts only if the feed had events in it, so hours the capacity was suspended or the feed missed are never counted as available capacity. Budget = capacity CU x 3600 s. Approximate.
+table Capacity
+
+	column Date
+		dataType: dateTime
+		formatString: dd MMM yyyy
+		summarizeBy: none
+		sourceColumn: Date
+
+	column 'Capacity ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: CapacityId
+
+	column Capacity
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Capacity
+
+	column 'Capacity SKU'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Sku
+
+	column CapacityCUValue
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: CapacityCU
+
+	column BudgetCUValue
+		dataType: double
+		isHidden
+		formatString: #,##0
+		summarizeBy: none
+		sourceColumn: BudgetCUs
+
+	column 'Capacity Hour Key'
+		dataType: string
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: CapacityHourKey
+
+	column 'Hour UTC'
+		dataType: dateTime
+		formatString: dd MMM yyyy HH:mm
+		summarizeBy: none
+		sourceColumn: Hour
+
+	partition Capacity = m
+		mode: import
+		source =
+				let
+					Source = AzureDataExplorer.Contents(ObservabilityEndpoint, ObservabilityDatabase, "ObservabilityCapacity()", [MaxRows=null, MaxSize=null, NoTruncate=true, AdditionalSetStatements=null])
+				in
+					Source

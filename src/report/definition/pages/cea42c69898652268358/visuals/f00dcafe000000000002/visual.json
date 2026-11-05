@@ -1,0 +1,21 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
+  "name": "f00dcafe000000000002",
+  "position": { "x": 32, "y": 1040, "width": 1856, "height": 34, "z": 5000, "tabOrder": 5000 },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [{
+        "properties": {
+          "paragraphs": [{
+            "textRuns": [{
+              "value": "AI-assisted proof of concept. Estimated measurements, not a billing tool or production monitoring product. Review the code, permissions and costs before use.",
+              "textStyle": { "fontFamily": "Segoe UI", "fontSize": "9pt", "color": "#64748B" }
+            }],
+            "horizontalTextAlignment": "left"
+          }]
+        }
+      }]
+    }
+  }
+}

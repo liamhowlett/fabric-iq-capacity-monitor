@@ -1,0 +1,8 @@
+.state/
+*.local.json
+*.runtime.json
+*.log
+*.pbix
+*.pdf
+__pycache__/
+.DS_Store

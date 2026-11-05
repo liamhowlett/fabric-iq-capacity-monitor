@@ -1,0 +1,77 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/3.1.0/schema.json",
+  "themeCollection": {
+    "customTheme": {
+      "name": "QueryObservability.json",
+      "type": "RegisteredResources",
+      "reportVersionAtImport": {
+        "visual": "2.5.0",
+        "page": "2.0.0",
+        "report": "3.1.0"
+      }
+    }
+  },
+  "resourcePackages": [
+    {
+      "name": "RegisteredResources",
+      "type": "RegisteredResources",
+      "items": [
+        {
+          "name": "QueryObservability.json",
+          "path": "QueryObservability.json",
+          "type": "CustomTheme"
+        },
+        {
+          "name": "icon_clock003947432081151.png",
+          "path": "icon_clock003947432081151.png",
+          "type": "Image"
+        },
+        {
+          "name": "icon_cal7175386107163868.png",
+          "path": "icon_cal7175386107163868.png",
+          "type": "Image"
+        },
+        {
+          "name": "icon_cal28017726498393330.png",
+          "path": "icon_cal28017726498393330.png",
+          "type": "Image"
+        },
+        {
+          "name": "icon_shield265242933328849.png",
+          "path": "icon_shield265242933328849.png",
+          "type": "Image"
+        },
+        {
+          "name": "icon_layers255751396004775.png",
+          "path": "icon_layers255751396004775.png",
+          "type": "Image"
+        },
+        {
+          "name": "icon_pulse196930217666760.png",
+          "path": "icon_pulse196930217666760.png",
+          "type": "Image"
+        },
+        {
+          "name": "bg_page1053201091680634.jpg",
+          "path": "bg_page1053201091680634.jpg",
+          "type": "Image"
+        },
+        {
+          "name": "bg_page2259424255688385.jpg",
+          "path": "bg_page2259424255688385.jpg",
+          "type": "Image"
+        },
+        {
+          "name": "bg_page3259424255688385.jpg",
+          "path": "bg_page3259424255688385.jpg",
+          "type": "Image"
+        },
+        {
+          "name": "bg_page4259424255688385.jpg",
+          "path": "bg_page4259424255688385.jpg",
+          "type": "Image"
+        }
+      ]
+    }
+  ]
+}

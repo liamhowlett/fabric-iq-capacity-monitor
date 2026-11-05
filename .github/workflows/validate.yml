@@ -1,0 +1,14 @@
+name: Validate package
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  local-checks:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PowerShell and portable assets
+        shell: pwsh
+        run: .\tests\Test-Local.ps1

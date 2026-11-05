@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "tenantId": "00000000-0000-0000-0000-000000000000",
+  "capacityId": "00000000-0000-0000-0000-000000000000",
+  "workspaceName": "Fabric IQ Monitor PoC",
+  "workspaceId": "",
+  "createWorkspace": true,
+  "prefix": "FabricIQMonitor",
+  "folderName": "Fabric IQ Monitor",
+  "folderId": "",
+  "lookbackDays": 30,
+  "retentionDays": 30,
+  "cacheDays": 7,
+  "monitoring": {
+    "mode": "Create",
+    "sources": []
+  },
+  "identityMappings": [],
+  "existingConnectionId": "",
+  "stateFile": ".state/deployment.json",
+  "operationTimeoutSeconds": 600
+}

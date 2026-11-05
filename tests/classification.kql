@@ -1,0 +1,13 @@
+// Synthetic classification fixtures only. Does not ingest or label real capacity events.
+datatable(SourceOperation:string,Expected:bool) [
+    "FabricAIHub_MCP_Server_AskPowerBI_Sydney",true,
+    "fabricaihub_mcp_server_ExecuteQuery",true,
+    "FABRICAIHUB_MCP_SERVER_future_suffix",true,
+    "fabricaihub_mcp_server",true,
+    "Power BI Desktop",false,
+    "Unrelated_MCP_Server",false,
+    "prefix_fabricaihub_mcp_server",false,
+    "",false
+]
+| extend Actual=SourceOperation startswith "fabricaihub_mcp_server"
+| summarize Failures=countif(Actual!=Expected),Cases=count()

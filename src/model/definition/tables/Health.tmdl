@@ -1,0 +1,50 @@
+/// Feed state, freshness and limitations. Not filtered by request selection.
+table Health
+
+	measure 'Feed status' = COALESCE(CALCULATE(SELECTEDVALUE(Health[Value]), Health[Check] = "Capacity feed"), "Snapshot feed observation unavailable")
+		formatString: General
+
+	measure 'Data as of' = COALESCE(CALCULATE(SELECTEDVALUE(Health[Value]), Health[Check] = "Data as of UTC"), "Not available")
+		formatString: General
+
+	/// Historical observation at Import refresh, never a live connection or a claim about suspension.
+	measure 'Feed state' = [Feed status]
+		formatString: General
+
+	measure 'Feed state colour' = "#64748B"
+		formatString: General
+		isHidden
+
+	measure 'Latest capacity event' = COALESCE(CALCULATE(SELECTEDVALUE(Health[Value]), Health[Check] = "Last capacity event UTC"), "Not observed")
+		formatString: General
+
+	measure 'Latest capacity event label' =
+			VAR _value = [Latest capacity event]
+			RETURN IF(LEN(_value) >= 16 && LEFT(_value, 2) = "20",
+				"Latest capacity event: " & FORMAT(DATE(VALUE(LEFT(_value, 4)), VALUE(MID(_value, 6, 2)), VALUE(MID(_value, 9, 2))) + TIME(VALUE(MID(_value, 12, 2)), VALUE(MID(_value, 15, 2)), 0), "d MMM HH:mm") & " UTC",
+				"Latest capacity event: not observed")
+		formatString: General
+
+	column Check
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Check
+
+	column Value
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Value
+
+	column 'Sort order'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: SortOrder
+
+	partition Health = m
+		mode: import
+		source =
+				let
+					Source = AzureDataExplorer.Contents(ObservabilityEndpoint, ObservabilityDatabase, "ObservabilityHealth()", [MaxRows=null, MaxSize=null, NoTruncate=true, AdditionalSetStatements=null])
+				in
+					Source

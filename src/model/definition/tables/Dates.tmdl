@@ -1,0 +1,17 @@
+/// Shared date filter for capacity events and query-only operations. A query without a capacity event remains selectable.
+table Dates
+
+	column Date
+		dataType: dateTime
+		isKey
+		formatString: dd MMM yyyy
+		summarizeBy: none
+		sourceColumn: [Date]
+
+	partition Dates = calculated
+		mode: import
+		source =
+				VAR _dates = FILTER(UNION(SELECTCOLUMNS(Requests, "D", Requests[Date]), SELECTCOLUMNS(Capacity, "D", Capacity[Date])), NOT ISBLANK([D]))
+				VAR _first = MINX(_dates, [D])
+				VAR _last = MAXX(_dates, [D])
+				RETURN FILTER(CALENDAR(COALESCE(_first, TODAY()), COALESCE(_last, TODAY())), NOT ISBLANK(_first))

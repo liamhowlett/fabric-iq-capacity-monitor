@@ -1,0 +1,556 @@
+/// Capacity operations and log-only semantic queries. CU is attributed once per operation; identities describe execution, not chat authors.
+table Requests
+
+	measure 'Billable CU (s)' =
+			IF(COUNT(Requests[CUValue]) > 0, SUM(Requests[CUValue]), BLANK())
+		formatString: #,##0.0
+		displayFolder: Observability
+
+	measure 'Consumed CU (s)' =
+			CALCULATE([Billable CU (s)], REMOVEFILTERS(Requests[Workload]), REMOVEFILTERS(Requests[Usage type]), REMOVEFILTERS(Requests[Is AI]), REMOVEFILTERS(Requests[Item kind]), REMOVEFILTERS(Requests[Operation]))
+		formatString: #,##0.0
+		displayFolder: Observability
+
+	measure 'AI CU (s)' =
+			COALESCE(CALCULATE([Billable CU (s)], Requests[Is AI] = TRUE()), 0)
+		formatString: #,##0.0
+		displayFolder: Observability
+
+	measure 'AI CU by group (s)' =
+			CALCULATE([Billable CU (s)], Requests[Is AI] = TRUE())
+		formatString: #,##0.0
+		displayFolder: Observability
+
+	measure 'AI queries' =
+			COALESCE(CALCULATE(COUNTROWS(Requests), Requests[Is AI] = TRUE(), Requests[Has cost] = TRUE()), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'AI operations observed' =
+			COALESCE(CALCULATE(COUNTROWS(Requests), KEEPFILTERS(Requests[Is AI] = TRUE())), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Feed hours covered' =
+			COALESCE(COUNTROWS(Capacity), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Capacity budget CU (s)' =
+			SUM(Capacity[BudgetCUValue])
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Capacity used %' =
+			DIVIDE([Consumed CU (s)], [Capacity budget CU (s)])
+		formatString: 0.0%
+		displayFolder: Observability
+
+	measure 'AI % of capacity' =
+			DIVIDE([AI CU (s)], [Capacity budget CU (s)])
+		formatString: 0.0000%
+		displayFolder: Observability
+
+	measure 'AI % of consumed CU' =
+			DIVIDE([AI CU (s)], [Consumed CU (s)])
+		formatString: 0.000%
+		displayFolder: Observability
+
+	measure 'Workload % of capacity' =
+			DIVIDE([Billable CU (s)], [Capacity budget CU (s)])
+		formatString: 0.0000%
+		displayFolder: Observability
+
+	measure 'Share of consumed CU' =
+			DIVIDE([Billable CU (s)], [Consumed CU (s)])
+		formatString: 0.000%
+		displayFolder: Observability
+
+	measure 'Semantic model query CU (s)' =
+			CALCULATE([Billable CU (s)], Requests[Is semantic query] = TRUE(), Requests[Match status] <> "Pending logs", REMOVEFILTERS(Requests[Workload]), REMOVEFILTERS(Requests[Usage type]), REMOVEFILTERS(Requests[Is AI]))
+		formatString: #,##0.0
+		displayFolder: Observability
+
+	measure 'Matched query CU (s)' =
+			CALCULATE([Semantic model query CU (s)], Requests[Has logs] = TRUE())
+		formatString: #,##0.0
+		displayFolder: Observability
+
+	measure 'Unmatched query CU (s)' =
+			CALCULATE([Semantic model query CU (s)], Requests[Has logs] = FALSE())
+		formatString: #,##0.0
+		displayFolder: Observability
+
+	measure 'AI % of semantic model queries' =
+			DIVIDE([AI CU (s)], [Semantic model query CU (s)])
+		formatString: 0.0%
+		displayFolder: Observability
+
+	measure 'Query-log coverage' =
+			DIVIDE([Matched query CU (s)], [Semantic model query CU (s)])
+		formatString: 0%
+		displayFolder: Observability
+
+	measure 'Non-billable CU (s)' =
+			IF(COUNT(Requests[NonbillableCUValue]) > 0, SUM(Requests[NonbillableCUValue]), BLANK())
+		formatString: #,##0.0
+		displayFolder: Observability
+
+	measure 'Measured requests' =
+			COALESCE(CALCULATE(COUNTROWS(Requests), Requests[Has cost] = TRUE()), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Request count' =
+			COALESCE(COUNTROWS(Requests), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Statement count' =
+			COALESCE(SUM(Requests[StatementCountValue]), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Failed statements' =
+			COALESCE(SUM(Requests[FailedCountValue]), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Engine CPU (ms)' =
+			SUM(Requests[CpuMsValue])
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Charge records' =
+			SUM(Requests[ChargeRowsValue])
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Log-only requests' =
+			COALESCE(CALCULATE(COUNTROWS(Requests), KEEPFILTERS(Requests[Has cost] = FALSE())), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Pending query operations' =
+			COALESCE(CALCULATE(COUNTROWS(Requests), KEEPFILTERS(Requests[Match status] IN {"Pending logs", "Pending consumption"})), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Data end hour' =
+			CALCULATE(MAX(Capacity[Hour UTC]), REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity))
+		formatString: dd MMM yyyy HH:mm
+		displayFolder: Windows
+
+	measure 'Window start hour' =
+			VAR _hours = SELECTEDVALUE('Window'[Hours], 672)
+			RETURN [Data end hour] - (_hours - 1) / 24 - 1 / 48
+		formatString: dd MMM yyyy HH:mm
+		displayFolder: Windows
+
+	measure 'Window AI share of capacity' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([AI % of capacity], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: 0.0000%
+		displayFolder: Windows
+
+	measure 'Window capacity used' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([Capacity used %], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: 0.0%
+		displayFolder: Windows
+
+	measure 'Window AI queries' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([AI queries], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: #,##0
+		displayFolder: Windows
+
+	measure 'Window AI CU (s)' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([AI CU (s)], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: #,##0.0
+		displayFolder: Windows
+
+	measure 'Window hours of data' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([Feed hours covered], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: #,##0
+		displayFolder: Windows
+
+	measure 'Window workload share' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([Workload % of capacity], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: 0.0000%
+		displayFolder: Windows
+
+	measure 'Window workload CU (s)' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([Billable CU (s)], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: #,##0.0
+		displayFolder: Windows
+
+	measure 'Window query-log coverage' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([Query-log coverage], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: 0%
+		displayFolder: Windows
+
+	measure 'Workspaces using capacity' =
+			COALESCE(CALCULATE(DISTINCTCOUNT(Requests[Workspace ID]), Requests[Has cost] = TRUE(), Requests[Workspace ID] <> "", Requests[Workspace] <> "Unidentified workspace"), 0)
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Workspaces with query logs' =
+			VAR _capacityWorkspaces = CALCULATETABLE(VALUES(Requests[Workspace ID]), Requests[Has cost] = TRUE(), Requests[Workspace ID] <> "", Requests[Workspace] <> "Unidentified workspace")
+			VAR _loggedWorkspaces = CALCULATETABLE(VALUES(Requests[Workspace ID]), Requests[Has logs] = TRUE(), Requests[Workspace ID] <> "", Requests[Workspace] <> "Unidentified workspace")
+			RETURN COUNTROWS(INTERSECT(_capacityWorkspaces, _loggedWorkspaces))
+		formatString: #,##0
+		displayFolder: Observability
+
+	measure 'Window workspaces using capacity' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([Workspaces using capacity], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: #,##0
+		displayFolder: Windows
+
+	measure 'Window workspaces with query logs' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			RETURN CALCULATE([Workspaces with query logs], REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity),
+			    Requests[Hour UTC] >= _start, Requests[Hour UTC] <= _end,
+			    Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+		formatString: #,##0
+		displayFolder: Windows
+
+	measure 'Query-log workspaces' =
+			[Window workspaces with query logs] & " of " & [Window workspaces using capacity]
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Window summary' =
+			VAR _hours = [Window hours of data]
+			VAR _queries = [Window AI queries]
+			RETURN IF(_hours = 0, "No capacity events in this window",
+			    "Capacity used " & FORMAT([Window capacity used], "0.0%") & "  |  " &
+			    IF(_queries = 0, "no AI operations with CU", _queries & " AI ops with CU") & "  |  " & _hours & " observed h")
+		formatString: General
+		displayFolder: Windows
+
+	measure 'AI callout' =
+			"AI queries: " & FORMAT([Window AI share of capacity], "0.0000%") & "  |  " & FORMAT([Window AI CU (s)], "#,##0") & " CU-seconds"
+		formatString: General
+		displayFolder: Windows
+
+	measure 'AI share by day' =
+			IF([Feed hours covered] = 0, BLANK(), [AI % of capacity])
+		formatString: 0.0000%;-0.0000%;
+		displayFolder: Windows
+
+	measure 'Headline AI figure' =
+			IF([Window hours of data] = 0 || [Window workspaces with query logs] = 0, "n/a", FORMAT([Window AI share of capacity], "0.0000%"))
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Headline AI caption' =
+			VAR _end = [Data end hour]
+			VAR _start = [Window start hour]
+			VAR _since = CALCULATE(MIN(Capacity[Date]), REMOVEFILTERS(Dates), REMOVEFILTERS(Capacity), Capacity[Hour UTC] >= _start, Capacity[Hour UTC] <= _end)
+			RETURN SWITCH(TRUE(),
+			    [Window hours of data] = 0, "No capacity events in this snapshot.",
+			    [Window workspaces with query logs] = 0, "AI identification unavailable: no query logs observed in this window.",
+			    "of capacity recorded as AI: " & FORMAT([Window AI CU (s)], "#,##0") & " CU-seconds across " & [Window AI queries] & " operations since " & FORMAT(_since, "d MMM") & ".")
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Headline capacity figure' =
+			IF([Window hours of data] = 0, BLANK(), FORMAT([Window capacity used], "0.0%"))
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Headline capacity caption' =
+			VAR _leaders = TOPN(1, FILTER(ALL(Requests[Workload]), Requests[Workload] <> "AI queries (Fabric IQ)" && [Window workload CU (s)] > 0), [Window workload CU (s)], DESC, Requests[Workload], ASC)
+			VAR _name = MAXX(_leaders, Requests[Workload])
+			VAR _share = CALCULATE([Window workload share], Requests[Workload] = _name)
+			RETURN IF([Window hours of data] = 0, BLANK(), "of capacity used overall" & IF(ISBLANK(_name), ".", ", led by " & _name & " (" & FORMAT(_share, "0.0%") & ")."))
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Headline AI line' =
+			[Headline AI figure] & " " & [Headline AI caption]
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Headline capacity line' =
+			[Headline capacity figure] & " " & [Headline capacity caption]
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Headline' =
+			[Headline AI line] & " " & [Headline capacity line]
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Capacity label' =
+			IF(DISTINCTCOUNT(Capacity[Capacity ID]) > 1, "Multiple capacities", "Capacity  " & MAXX(Capacity, Capacity[Capacity]) & "  |  " & MAXX(Capacity, Capacity[Capacity SKU]))
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Data as of label' =
+			VAR _value = [Data as of]
+			RETURN IF(LEN(_value) >= 16 && LEFT(_value, 2) = "20",
+			    "Snapshot refreshed  " & FORMAT(DATE(VALUE(LEFT(_value, 4)), VALUE(MID(_value, 6, 2)), VALUE(MID(_value, 9, 2))) + TIME(VALUE(MID(_value, 12, 2)), VALUE(MID(_value, 15, 2)), 0), "d MMM HH:mm") & " UTC",
+			    "Snapshot refresh time unavailable")
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Workspace coverage label' =
+			"Query logs observed: " & [Query-log workspaces] & " workspaces (last 28 days)"
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Overview coverage label' =
+			"Matched query CU: " & IF(ISBLANK([Window query-log coverage]), "not available", FORMAT([Window query-log coverage], "0%")) & "  |  28-day snapshot"
+		formatString: General
+		displayFolder: Observability
+
+	measure 'Detail scope label' =
+			VAR _type = SELECTEDVALUE(Requests[Usage type], "All workloads")
+			RETURN _type & " | " & FORMAT([Request count], "#,##0") & " observed operations. Log-only queries are included; blank CU is not zero cost."
+		formatString: General
+		displayFolder: Observability
+
+	column 'Request Key'
+		dataType: string
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: RequestKey
+
+	column 'Request'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Request
+
+	column 'Operation ID'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: OperationId
+
+	column 'Item ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: ItemId
+
+	column 'Item'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Item
+
+	column 'Item kind'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ItemKind
+
+	column 'Operation'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Operation
+
+	column 'Utilization'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Utilization
+
+	column 'Workload'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Workload
+
+	column 'Usage type'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: UsageType
+
+	column 'Is AI'
+		dataType: boolean
+		isHidden
+		summarizeBy: none
+		sourceColumn: IsAI
+
+	column 'Is semantic query'
+		dataType: boolean
+		isHidden
+		summarizeBy: none
+		sourceColumn: IsSemanticQuery
+
+	column 'Workspace ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: WorkspaceId
+
+	column 'Workspace'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Workspace
+
+	column 'Capacity ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: CapacityId
+
+	column 'Capacity Hour Key'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: CapacityHourKey
+
+	column 'Match status'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: MatchStatus
+
+	column 'Activity UTC'
+		dataType: dateTime
+		formatString: dd MMM HH:mm:ss
+		summarizeBy: none
+		sourceColumn: StartTime
+
+	column 'Time basis'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: TimeBasis
+
+	column 'Date'
+		dataType: dateTime
+		isHidden
+		formatString: dd MMM yyyy
+		summarizeBy: none
+		sourceColumn: Date
+
+	column 'Hour UTC'
+		dataType: dateTime
+		isHidden
+		formatString: dd MMM yyyy HH:mm
+		summarizeBy: none
+		sourceColumn: Hour
+
+	column 'CUValue'
+		dataType: double
+		isHidden
+		formatString: #,##0.0
+		summarizeBy: none
+		sourceColumn: BillableCU
+
+	column 'NonbillableCUValue'
+		dataType: double
+		isHidden
+		summarizeBy: none
+		sourceColumn: NonbillableCU
+
+	column 'ChargeRowsValue'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: ChargeRows
+
+	column 'InvalidChargesValue'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: InvalidCharges
+
+	column 'StatementCountValue'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: StatementCount
+
+	column 'FailedCountValue'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: FailedCount
+
+	column 'CpuMsValue'
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: CpuMs
+
+	column 'Has cost'
+		dataType: boolean
+		isHidden
+		summarizeBy: none
+		sourceColumn: HasCost
+
+	column 'Has logs'
+		dataType: boolean
+		isHidden
+		summarizeBy: none
+		sourceColumn: HasLogs
+
+	column 'Identities'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Identities
+
+	column 'Execution identity'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: IdentityDisplay
+
+	column 'Execution identities'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: ExecutionIdentities
+
+	column 'Identity evidence'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: IdentityEvidence
+
+	column 'Identity types'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: IdentityTypes
+
+	partition Requests = m
+		mode: import
+		source =
+				let
+					Source = AzureDataExplorer.Contents(ObservabilityEndpoint, ObservabilityDatabase, "ObservabilityRequests()", [MaxRows=null, MaxSize=null, NoTruncate=true, AdditionalSetStatements=null])
+				in
+					Source
