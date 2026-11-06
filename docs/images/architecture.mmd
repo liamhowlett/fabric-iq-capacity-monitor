@@ -1,0 +1,13 @@
+flowchart LR
+    A["Workspace monitoring<br/>SemanticModelLogs"] -->|Read query-source evidence| D
+
+    B["Fabric capacity<br/>operation events"] --> C["Capacity-feed<br/>Eventstream"]
+
+    subgraph Custom["Custom observability Eventhouse"]
+        E["Capacity-event database"] --> D["KQL correlation<br/>and analysis"]
+    end
+
+    C --> E
+    D -->|Import refresh| F["Power BI semantic model"]
+    F --> G["Supplied report"]
+    F --> H["Your own report"]

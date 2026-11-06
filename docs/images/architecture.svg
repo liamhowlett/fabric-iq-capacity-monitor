@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1540" height="520" viewBox="0 0 1540 520" role="img" aria-labelledby="title description">
+  <title id="title">Fabric IQ Capacity Monitor reference architecture</title>
+  <desc id="description">Workspace monitoring query logs are read by KQL analysis in a custom observability Eventhouse. Fabric capacity operation events flow through a capacity-feed Eventstream into its capacity-event database. KQL results are imported into a Power BI semantic model, which supports the supplied report or your own report.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M 0 0 L 9 5 L 0 10 Z" fill="#6f42c1"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; fill: #000000; }
+      .label { font-size: 19px; text-anchor: middle; }
+      .caption { font-size: 16px; text-anchor: middle; }
+      .box { stroke-width: 2; rx: 14; }
+      .flow { fill: none; stroke: #6f42c1; stroke-width: 2.5; marker-end: url(#arrow); stroke-linejoin: round; }
+    </style>
+  </defs>
+  <rect width="1540" height="520" fill="#ffffff"/>
+  <rect class="box" x="620" y="35" width="500" height="440" fill="none" stroke="#862e9c" stroke-dasharray="7 5"/>
+  <text class="caption" x="870" y="63">Custom observability Eventhouse</text>
+
+  <rect class="box" x="30" y="90" width="230" height="100" fill="#cfe4fa" stroke="#0078d4"/>
+  <text class="label" x="145" y="131">Workspace monitoring</text>
+  <text class="label" x="145" y="158">SemanticModelLogs</text>
+  <text class="caption" x="145" y="217">Microsoft-managed store</text>
+
+  <rect class="box" x="30" y="340" width="230" height="100" fill="#cfe4fa" stroke="#0078d4"/>
+  <text class="label" x="145" y="381">Fabric capacity</text>
+  <text class="label" x="145" y="408">operation events</text>
+
+  <rect class="box" x="320" y="340" width="230" height="100" fill="#fff4ce" stroke="#e67700"/>
+  <text class="label" x="435" y="381">Capacity-feed</text>
+  <text class="label" x="435" y="408">Eventstream</text>
+
+  <rect class="box" x="650" y="340" width="200" height="100" fill="#e8daef" stroke="#862e9c"/>
+  <text class="label" x="750" y="381">Capacity-event</text>
+  <text class="label" x="750" y="408">database</text>
+
+  <rect class="box" x="880" y="90" width="210" height="100" fill="#dff6dd" stroke="#107c10"/>
+  <text class="label" x="985" y="131">KQL correlation</text>
+  <text class="label" x="985" y="158">and analysis</text>
+
+  <rect class="box" x="1190" y="90" width="240" height="100" fill="#e8daef" stroke="#862e9c"/>
+  <text class="label" x="1310" y="131">Power BI</text>
+  <text class="label" x="1310" y="158">semantic model</text>
+
+  <rect class="box" x="1190" y="285" width="240" height="80" fill="#e8daef" stroke="#862e9c"/>
+  <text class="label" x="1310" y="333">Supplied report</text>
+  <rect class="box" x="1190" y="405" width="240" height="80" fill="#cfe4fa" stroke="#0078d4"/>
+  <text class="label" x="1310" y="453">Your own report</text>
+  <text class="caption" x="1310" y="254">Choose either report</text>
+
+  <path class="flow" d="M 260 140 H 880"/>
+  <text class="caption" x="470" y="124">Read query-source evidence</text>
+  <path class="flow" d="M 260 390 H 320"/>
+  <path class="flow" d="M 550 390 H 650"/>
+  <path class="flow" d="M 850 390 H 985 V 190"/>
+  <path class="flow" d="M 1090 140 H 1190"/>
+  <text class="caption" x="1140" y="210">Import refresh</text>
+  <path class="flow" d="M 1430 140 H 1490 V 325 H 1430"/>
+  <path class="flow" d="M 1490 325 V 445 H 1430"/>
+</svg>

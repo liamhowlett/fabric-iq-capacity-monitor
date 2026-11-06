@@ -2,8 +2,8 @@ Installation
 ============
 
 Read ``DISCLAIMER.rst`` and ``docs\limitations.rst`` first. Use an isolated,
-brand-new MCAPS workspace for pre-sharing validation. A fresh workspace does
-not isolate its compute from other workloads on the same capacity.
+brand-new Fabric workspace in your tenant for initial validation. A fresh
+workspace does not isolate its compute from other workloads on the same capacity.
 
 Prerequisites
 -------------

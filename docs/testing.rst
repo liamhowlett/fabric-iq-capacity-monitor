@@ -7,8 +7,9 @@ monitoring installation was not used as the deployment target or removed.
 This is evidence for an experimental AI-assisted proof of concept, not
 production certification, a security audit or an accuracy guarantee.
 
-Detailed identifiers, runtime state and raw telemetry are intentionally
-excluded from this repository.
+Runtime state and raw telemetry exports are intentionally excluded from this
+repository. The README includes owner-supplied screenshots from the clean-install demo,
+which show demo resource names and execution identities.
 
 Completed
 ---------
@@ -171,7 +172,9 @@ Independent static screenshot review found no blocking rendering or data
 consistency issue. Minor truncation of overview trend timestamp labels was
 noted. No report definition was changed or republished. This is a review of
 the shown states, not exhaustive interaction or accessibility certification.
-Screenshots and private resource identities remain excluded from the repository.
+The README includes the owner-supplied clean-install report screenshots and
+the folder view. Private resource inventories and raw telemetry exports remain
+excluded.
 
 Folder organisation
 -------------------

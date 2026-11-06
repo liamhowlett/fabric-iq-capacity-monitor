@@ -42,20 +42,23 @@ Material covered by this release preparation includes:
   are not licensed by a licence added to this project.
 
 The approved licence covers the project code, bundled artwork and documentation.
-Keep local configuration, deployment state, telemetry and screenshots out of
-the release regardless of the licence selected.
+Keep local configuration, deployment state and raw telemetry exports out of
+the release regardless of the licence selected. Selected demo screenshots are
+included in the README; any further images require separate publication review.
 
 Before customer sharing
 -----------------------
 
-#. Complete an installation in a brand-new MCAPS workspace on the same
-   existing capacity being measured. Review capacity impact and use an
-   approved isolated test workload.
+#. Complete an installation in a brand-new isolated Fabric test workspace on
+   the same existing capacity being measured. Review capacity impact and use
+   an approved isolated test workload.
 #. Record actual commands, dates, outcomes and remaining gaps in
    ``docs\testing.rst``. Separate local checks, deployment, event delivery,
    identifiable query correlation, report refresh and genuine AI interaction.
-   Do not include real tenant IDs, resource IDs, UPNs, private workspace or
-   capacity names, or raw telemetry in the published evidence.
+   Keep raw telemetry and private identifiers out of results summaries.
+#. Review demo screenshots separately before publication. They can disclose
+   resource names, operation IDs and execution identities. The README's demo
+   images are not raw exports or proof of a different deployment's results.
 #. Require fresh query activity in semantic logs and its matching capacity
    event before claiming end-to-end collection. Running components, generated
    synthetic prefix fixtures and ordinary DAX calls are not an AI roundtrip.
@@ -76,9 +79,9 @@ Before making the repository public
 
 * Review all tracked files and Git history, not just the current tree. Remove
   or sanitise real identifiers, identities, private resource names, query text,
-  configuration, state, runtime outputs, screenshots, PDFs, backups and live
-  telemetry. If a credential was exposed, revoke it; deleting a file is not
-  sufficient.
+  configuration, state, runtime outputs, unapproved screenshots, PDFs, backups
+  and live telemetry. If a credential was exposed, revoke it; deleting a file
+  is not sufficient.
 * Confirm that ignore rules cover local configuration, runtime files and
   state. They do not remove previously tracked content.
 * Review included assets and dependencies for redistribution rights and
@@ -94,5 +97,5 @@ Before making the repository public
   change. This guide does not authorise changing visibility or distributing
   the repository.
 
-Do not publish live test artefacts to demonstrate success. Keep detailed
-evidence in approved private storage and share only a sanitised results summary.
+Keep detailed live test artefacts in approved private storage. Publish a results
+summary and only the demo images explicitly reviewed for public sharing.

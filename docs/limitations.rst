@@ -86,7 +86,9 @@ The Microsoft-managed monitoring Eventhouse is read-only telemetry. The custom
 observability Eventhouse is a separate writable store. Existing legacy
 monitoring must not be silently migrated or replaced.
 
-Telemetry can expose UPNs, query text and business metadata. Restrict access,
-review data policy and retention, and keep live configuration, state, exports,
-screenshots, PDFs and backups out of Git. Successful installation does not
-establish that these controls are sufficient for a customer environment.
+Telemetry can expose UPNs, query text and business metadata. Restrict access
+and review data policy and retention. Keep live configuration, state, exports,
+PDFs and backups out of Git. The README includes selected demo screenshots;
+additional screenshots need explicit publication review before inclusion.
+Successful installation does not establish that these controls are sufficient
+for a customer environment.

@@ -45,8 +45,8 @@ Check each level separately:
 If suitable query activity cannot be generated, a table is pending, or no
 matching event arrives within the observation period, record that level as
 pending or failed with the reason. Do not promote a partial test to a pass.
-Use a brand-new MCAPS workspace before customer sharing. A successful smoke
-test is not production certification or a security/compliance audit.
+Use a brand-new isolated Fabric test workspace before customer sharing. A
+successful smoke test is not production certification or a security/compliance audit.
 
 Reading the report
 ------------------
@@ -176,4 +176,5 @@ Restrict workspace and connection access. Query text, UPNs, source metadata
 and identity mappings can be sensitive. Review retention, exports and recovery
 copies under the applicable data policy. Local configuration, runtime files
 and state are ignored by Git, but that is not a security boundary. Do not
-commit live screenshots, PDFs, backups, logs or exported telemetry.
+commit unreviewed live screenshots, PDFs, backups, logs or exported telemetry.
+Selected demo images in the README are a separately reviewed publication asset.
