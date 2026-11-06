@@ -8,7 +8,7 @@ The useful part is the method. You don't need to deploy this solution to use
 it. Take the queries into your existing monitoring setup, build your own
 analysis, or connect your own report to the supplied semantic model.
 
-What did I discover and why does it matter?
+The discovery and why it matters?
 -------------------------------------------
 
 I wanted to understand the Fabric compute associated with Fabric IQ querying
@@ -45,7 +45,7 @@ events. The report in this repository is one way of presenting that analysis.
 
 .. note::
 
-   I used generative AI extensively to help create the scripts, KQL, semantic
+   I used generative AI to help create the scripts, KQL, semantic
    model and report. This is an experimental example, so review the
    implementation before using it in your own environment.
 
@@ -333,7 +333,7 @@ Only recorded owned parents move, with their generated children. External
 monitoring sources stay where they are, and unknown items block parent moves.
 See the installation guide for the ownership safeguards.
 
-Before using this with a customer
+Before using this
 ----------------------------------
 
 .. warning::
@@ -341,8 +341,7 @@ Before using this with a customer
    This is an experimental, community-supported proof of concept. It isn't
    an official Microsoft offering, a production-ready monitoring product or
    a billing tool. No accuracy or production-support commitment is made.
-   Review the code and permissions, assess the cost, and test in an isolated
-   environment before use.
+   Review the code and permissions, assess the cost.
 
 Monitoring itself consumes capacity. Telemetry can contain identities and
 query text, so review access and retention before collecting it. Don't commit
